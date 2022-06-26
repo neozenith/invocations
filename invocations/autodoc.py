@@ -41,18 +41,23 @@ To use:
 .. _autodoc: http://www.sphinx-doc.org/en/master/ext/autodoc.html
 """
 
+import inspect
+
 from invoke import Task
-from sphinx.util.inspect import getargspec  # Improved over raw stdlib
 
 # For sane mock patching. Meh.
 from sphinx.ext import autodoc
 
 
+# TODO: may make sense later to inherit from FunctionDocumenter and:
+# - make sure objtype override still works
+# - still override format_args but base closely on upstream
 class TaskDocumenter(
     autodoc.DocstringSignatureMixin, autodoc.ModuleLevelDocumenter
 ):
     objtype = "task"
-    directivetype = "function"
+    # TODO: this maybe gone now??
+    #directivetype = "function"
 
     @classmethod
     def can_document_member(cls, member, membername, isattr, parent):
@@ -67,7 +72,7 @@ class TaskDocumenter(
         # after which point "call tasks as raw functions" may be less common.
         # TODO: also, it may become moot-ish if we turn this all into emission
         # of custom domain objects and/or make the CLI arguments the focus
-        return autodoc.formatargspec(function, *getargspec(function))
+        return autodoc.stringify_signature(inspect.signature(function))
 
     def document_members(self, all_members=False):
         # Neuter this so superclass bits don't introspect & spit out autodoc
@@ -87,4 +92,12 @@ def setup(app):
     # real function documenting.
     # NOTE: sooo for now, since a bunch of our other shit breaks on Sphinx 1.7,
     # we are just explicitly calling autodoc's add_documenter. Sadface.
-    autodoc.add_documenter(TaskDocumenter)
+    # TODO: two possible ways forward:
+    # - add_autodocumenter now has an override kwarg, which might solve the
+    # warn but may not solve the double define
+    # - but it might be moot as that method no longer looks at a directivetype
+    # attribute, only objtype, so it will only make 'autotask' now?
+    # TODO: doublecheck latest invocations release's generation of autodoc task
+    # shit (it is in our own docs!) as a baseline before going ahead here
+    #autodoc.add_documenter(TaskDocumenter)
+    app.add_autodocumenter(TaskDocumenter)
